@@ -7,6 +7,14 @@ from pathlib import Path
 import select
 import sys
 
+# Fix Windows GBK encoding issue - ensure UTF-8 for stdout/stderr
+if sys.platform == "win32":
+    import io
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
@@ -28,7 +36,7 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-console = Console()
+console = Console(force_terminal=True, legacy_windows=False)
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit", ":q"}
 
 # ---------------------------------------------------------------------------

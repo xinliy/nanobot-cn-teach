@@ -1,24 +1,128 @@
 <div align="center">
   <img src="nanobot_logo.png" alt="nanobot" width="500">
-  <h1>nanobot: Ultra-Lightweight Personal AI Assistant</h1>
+  <h1>nanobot-cn-teach</h1>
+  <p><strong>China-network-friendly fork of <a href="https://github.com/HKUDS/nanobot">nanobot</a></strong></p>
   <p>
-    <a href="https://pypi.org/project/nanobot-ai/"><img src="https://img.shields.io/pypi/v/nanobot-ai" alt="PyPI"></a>
-    <a href="https://pepy.tech/project/nanobot-ai"><img src="https://static.pepy.tech/badge/nanobot-ai" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/Feishu-Group-E9DBFC?style=flat&logo=feishu&logoColor=white" alt="Feishu"></a>
-    <a href="./COMMUNICATION.md"><img src="https://img.shields.io/badge/WeChat-Group-C5EAB4?style=flat&logo=wechat&logoColor=white" alt="WeChat"></a>
-    <a href="https://discord.gg/MnCvHqpUGB"><img src="https://img.shields.io/badge/Discord-Community-5865F2?style=flat&logo=discord&logoColor=white" alt="Discord"></a>
+    <img src="https://img.shields.io/badge/LLM-DashScope%20(Qwen)-orange" alt="DashScope">
+    <img src="https://img.shields.io/badge/Chat-Feishu-E9DBFC" alt="Feishu">
+    <img src="https://img.shields.io/badge/Search-Bocha-blue" alt="Bocha">
+    <img src="https://img.shields.io/badge/No%20VPN-Required-brightgreen" alt="No VPN">
   </p>
 </div>
 
-🐈 **nanobot** is an **ultra-lightweight** personal AI assistant inspired by [OpenClaw](https://github.com/openclaw/openclaw) 
+> **Forked from [HKUDS/nanobot](https://github.com/HKUDS/nanobot)** (MIT License)
+>
+> This fork adapts nanobot for **China mainland network**. All APIs (LLM, search, image generation, chat) work directly without VPN.
 
-⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
+## What's Different from Upstream
 
-📏 Real-time line count: **3,922 lines** (run `bash core_agent_lines.sh` to verify anytime)
+| Area | Upstream (HKUDS/nanobot) | This Fork |
+|------|--------------------------|-----------|
+| **LLM Provider** | OpenRouter, Anthropic, OpenAI, etc. | DashScope (Qwen) via `providers.custom` |
+| **Web Search** | Brave Search | Bocha CN Search |
+| **Image Generation** | -- | DashScope Qwen Image Plus (auto-registered tool) |
+| **Feishu Channel** | Basic support | External image auto-upload fix (image_key) |
+| **Network** | Requires global access | All CN-accessible, no VPN needed |
 
-## 📢 News
+## Quick Start
+
+### 1. Install
+
+```bash
+pip install nanobot-ai
+```
+
+Or install from source (this fork):
+
+```bash
+git clone https://github.com/xinliy/nanobot-cn-teach.git
+cd nanobot-cn-teach
+pip install -e .
+```
+
+### 2. Initialize
+
+```bash
+nanobot onboard
+```
+
+### 3. Configure (`~/.nanobot/config.json`)
+
+```json
+{
+  "providers": {
+    "custom": {
+      "apiKey": "sk-your-dashscope-key",
+      "apiBase": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    },
+    "dashscope": {
+      "apiKey": "sk-your-dashscope-key"
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": "qwen-max"
+    }
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "appId": "cli_xxx",
+      "appSecret": "xxx"
+    }
+  }
+}
+```
+
+> - `providers.custom` — powers the LLM (Qwen via OpenAI-compatible endpoint)
+> - `providers.dashscope` — powers image generation tool (same key, different API)
+> - Get your DashScope API key at [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com)
+
+### 4. Run
+
+```bash
+# CLI chat
+nanobot agent
+
+# Feishu bot
+nanobot gateway
+```
+
+## CN-Specific Features
+
+### Image Generation (DashScope Qwen Image Plus)
+
+The LLM auto-discovers and calls the image generation tool when users ask for images:
+
+```
+User: 生成一张小红书风格的花店图片
+Bot: [generates and sends image via Feishu]
+```
+
+Supports Chinese & English prompts, 4 sizes (1328x1328, 1024x1024, 720x720, 512x512).
+
+### Web Search (Bocha)
+
+Add Bocha API key to config for CN-accessible web search:
+
+```json
+{
+  "tools": {
+    "webSearch": {
+      "provider": "bocha",
+      "apiKey": "your-bocha-key"
+    }
+  }
+}
+```
+
+---
+
+*For full nanobot documentation (all providers, all channels, Docker, MCP, etc.), see the [upstream README](https://github.com/HKUDS/nanobot#readme).*
+
+## 📢 Upstream News
 
 - **2026-02-24** 🚀 Released **v0.1.4.post2** — a reliability-focused release with a redesigned heartbeat, prompt cache optimization, and hardened provider & channel stability. See [release notes](https://github.com/HKUDS/nanobot/releases/tag/v0.1.4.post2) for details.
 - **2026-02-23** 🔧 Virtual tool-call heartbeat, prompt cache optimization, Slack mrkdwn fixes.
@@ -1046,43 +1150,6 @@ nanobot/
 └── cli/            # 🖥️ Commands
 ```
 
-## 🤝 Contribute & Roadmap
+## Acknowledgments
 
-PRs welcome! The codebase is intentionally small and readable. 🤗
-
-**Roadmap** — Pick an item and [open a PR](https://github.com/HKUDS/nanobot/pulls)!
-
-- [ ] **Multi-modal** — See and hear (images, voice, video)
-- [ ] **Long-term memory** — Never forget important context
-- [ ] **Better reasoning** — Multi-step planning and reflection
-- [ ] **More integrations** — Calendar and more
-- [ ] **Self-improvement** — Learn from feedback and mistakes
-
-### Contributors
-
-<a href="https://github.com/HKUDS/nanobot/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=HKUDS/nanobot&max=100&columns=12&updated=20260210" alt="Contributors" />
-</a>
-
-
-## ⭐ Star History
-
-<div align="center">
-  <a href="https://star-history.com/#HKUDS/nanobot&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=HKUDS/nanobot&type=Date" style="border-radius: 15px; box-shadow: 0 0 30px rgba(0, 217, 255, 0.3);" />
-    </picture>
-  </a>
-</div>
-
-<p align="center">
-  <em> Thanks for visiting ✨ nanobot!</em><br><br>
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=HKUDS.nanobot&style=for-the-badge&color=00d4ff" alt="Views">
-</p>
-
-
-<p align="center">
-  <sub>nanobot is for educational, research, and technical exchange purposes only</sub>
-</p>
+Forked from [HKUDS/nanobot](https://github.com/HKUDS/nanobot) — an ultra-lightweight personal AI assistant. All credit for the core agent architecture goes to the original authors.

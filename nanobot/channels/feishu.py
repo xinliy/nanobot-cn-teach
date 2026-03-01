@@ -376,6 +376,9 @@ class FeishuChannel(BaseChannel):
 
     _CODE_BLOCK_RE = re.compile(r"(```[\s\S]*?```)", re.MULTILINE)
 
+    # Matches markdown images with external URLs: ![alt](https://...)
+    _EXT_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\((https?://[^)]+)\)")
+
     @staticmethod
     def _parse_md_table(table_text: str) -> dict | None:
         """Parse a markdown table into a Feishu table element."""
@@ -470,6 +473,36 @@ class FeishuChannel(BaseChannel):
                     return None
         except Exception as e:
             logger.error("Error uploading image {}: {}", file_path, e)
+            return None
+
+    def _download_and_upload_image_sync(self, url: str) -> str | None:
+        """Download an external image URL and upload it to Feishu, returning the image_key."""
+        import tempfile
+        import urllib.request
+
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Nanobot/1.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = resp.read()
+
+            # Write to temp file, then upload
+            suffix = ".png"
+            for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"):
+                if ext in url.lower():
+                    suffix = ext
+                    break
+
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+
+            try:
+                return self._upload_image_sync(tmp_path)
+            finally:
+                os.unlink(tmp_path)
+
+        except Exception as e:
+            logger.error("Failed to download/upload external image {}: {}", url, e)
             return None
 
     def _upload_file_sync(self, file_path: str) -> str | None:
@@ -648,11 +681,25 @@ class FeishuChannel(BaseChannel):
                         )
 
             if msg.content and msg.content.strip():
-                card = {"config": {"wide_screen_mode": True}, "elements": self._build_card_elements(msg.content)}
-                await loop.run_in_executor(
-                    None, self._send_message_sync,
-                    receive_id_type, msg.chat_id, "interactive", json.dumps(card, ensure_ascii=False),
-                )
+                # Extract external image URLs from markdown, upload to Feishu, send as image messages
+                content = msg.content
+                for match in self._EXT_IMAGE_RE.finditer(content):
+                    url = match.group(2)
+                    key = await loop.run_in_executor(None, self._download_and_upload_image_sync, url)
+                    if key:
+                        await loop.run_in_executor(
+                            None, self._send_message_sync,
+                            receive_id_type, msg.chat_id, "image", json.dumps({"image_key": key}, ensure_ascii=False),
+                        )
+                # Strip image markdown from text to avoid Feishu card image_key error
+                content = self._EXT_IMAGE_RE.sub("", content).strip()
+
+                if content:
+                    card = {"config": {"wide_screen_mode": True}, "elements": self._build_card_elements(content)}
+                    await loop.run_in_executor(
+                        None, self._send_message_sync,
+                        receive_id_type, msg.chat_id, "interactive", json.dumps(card, ensure_ascii=False),
+                    )
 
         except Exception as e:
             logger.error("Error sending Feishu message: {}", e)

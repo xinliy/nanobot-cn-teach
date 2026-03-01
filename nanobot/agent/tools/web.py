@@ -44,7 +44,7 @@ def _validate_url(url: str) -> tuple[bool, str]:
 
 
 class WebSearchTool(Tool):
-    """Search the web using Brave Search API."""
+    """Search the web using Bocha Search API."""
     
     name = "web_search"
     description = "Search the web. Returns titles, URLs, and snippets."
@@ -58,41 +58,42 @@ class WebSearchTool(Tool):
     }
     
     def __init__(self, api_key: str | None = None, max_results: int = 5):
-        self._init_api_key = api_key
+        self.api_key = api_key or os.environ.get("BRAVE_API_KEY", "")
         self.max_results = max_results
-
-    @property
-    def api_key(self) -> str:
-        """Resolve API key at call time so env/config changes are picked up."""
-        return self._init_api_key or os.environ.get("BRAVE_API_KEY", "")
-
+    
     async def execute(self, query: str, count: int | None = None, **kwargs: Any) -> str:
         if not self.api_key:
-            return (
-                "Error: Brave Search API key not configured. "
-                "Set it in ~/.nanobot/config.json under tools.web.search.apiKey "
-                "(or export BRAVE_API_KEY), then restart the gateway."
-            )
+            return "Error: BRAVE_API_KEY not configured"
         
         try:
             n = min(max(count or self.max_results, 1), 10)
             async with httpx.AsyncClient() as client:
-                r = await client.get(
-                    "https://api.search.brave.com/res/v1/web/search",
-                    params={"q": query, "count": n},
-                    headers={"Accept": "application/json", "X-Subscription-Token": self.api_key},
+                r = await client.post(
+                    "https://api.bocha.cn/v1/web-search",
+                    json={
+                        "query": query,
+                        "summary": True,
+                        "freshness": "noLimit",
+                        "count": n
+                    },
+                    headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                     timeout=10.0
                 )
                 r.raise_for_status()
             
-            results = r.json().get("web", {}).get("results", [])
+            # 访问正确的数据路径: data.webPages.value
+            full_response = r.json()
+            data = full_response.get("data", {})
+            web_pages = data.get("webPages", {})
+            results = web_pages.get("value", [])
+            
             if not results:
                 return f"No results for: {query}"
             
             lines = [f"Results for: {query}\n"]
             for i, item in enumerate(results[:n], 1):
-                lines.append(f"{i}. {item.get('title', '')}\n   {item.get('url', '')}")
-                if desc := item.get("description"):
+                lines.append(f"{i}. {item.get('name', '')}\n   {item.get('url', '')}")
+                if desc := item.get("snippet"):
                     lines.append(f"   {desc}")
             return "\n".join(lines)
         except Exception as e:
